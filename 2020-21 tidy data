@@ -1,0 +1,29 @@
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(tidyr)
+library(rvest)
+library(stringr)
+
+rawScoringData <- read_html(
+  x = "https://www.espn.com/nba/stats/player/_/season/2021/seasontype/2"
+) %>%
+  html_elements(css = "table") %>%
+  html_table()
+
+rawData <- bind_cols(rawScoringData[[1]], rawScoringData[[2]])
+
+scoringData <- subset(rawData, RK <= 10)
+
+scoringData$name <- str_replace(scoringData$Name, "GS"," ")
+scoringData$name <- str_replace(scoringData$Name, "WSH"," ")
+scoringData$name <- str_replace(scoringData$Name, "POR"," ")
+scoringData$name <- str_replace(scoringData$Name, "PHI"," ")
+scoringData$name <- str_replace(scoringData$Name, "MIL"," ")
+scoringData$name <- str_replace(scoringData$Name, "DAL"," ")
+scoringData$name <- str_replace(scoringData$Name, "CHI"," ")
+scoringData$name <- str_replace(scoringData$Name, "NO"," ")
+scoringData$name <- str_replace(scoringData$Name, "BKN"," ")
+
+removeColumns <- c("RK", "MIN", "FGM", "FG%", "3PM", "3PA", "3P%", "FTM", "FTA", "FT%", "REB", "AST", "STL", "BLK", "TO", "DD2", "TD3", "POS", "GP", "name")
+scoringData <- select(scoringData, -one_of(removeColumns))
