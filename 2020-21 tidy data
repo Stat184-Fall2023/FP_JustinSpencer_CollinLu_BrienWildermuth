@@ -4,7 +4,10 @@ library(ggplot2)
 library(tidyr)
 library(rvest)
 library(stringr)
+library(esquisse)
+esquisser(scoringData)
 
+#Open raw ESPN data
 rawScoringData <- read_html(
   x = "https://www.espn.com/nba/stats/player/_/season/2021/seasontype/2"
 ) %>%
@@ -13,17 +16,91 @@ rawScoringData <- read_html(
 
 rawData <- bind_cols(rawScoringData[[1]], rawScoringData[[2]])
 
-scoringData <- subset(rawData, RK <= 10)
+#Isolate top 15 scorers
+scoringData <- subset(rawData, RK <= 15)
 
-scoringData$name <- str_replace(scoringData$Name, "GS"," ")
-scoringData$name <- str_replace(scoringData$Name, "WSH"," ")
-scoringData$name <- str_replace(scoringData$Name, "POR"," ")
-scoringData$name <- str_replace(scoringData$Name, "PHI"," ")
-scoringData$name <- str_replace(scoringData$Name, "MIL"," ")
-scoringData$name <- str_replace(scoringData$Name, "DAL"," ")
-scoringData$name <- str_replace(scoringData$Name, "CHI"," ")
-scoringData$name <- str_replace(scoringData$Name, "NO"," ")
-scoringData$name <- str_replace(scoringData$Name, "BKN"," ")
+#Remove team abbreviations in name
+scoringData$Name <- str_replace(scoringData$Name, "GS"," ")
+scoringData$Name <- str_replace(scoringData$Name, "WSH"," ")
+scoringData$Name <- str_replace(scoringData$Name, "POR"," ")
+scoringData$Name <- str_replace(scoringData$Name, "PHI"," ")
+scoringData$Name <- str_replace(scoringData$Name, "MIL"," ")
+scoringData$Name <- str_replace(scoringData$Name, "DAL"," ")
+scoringData$Name <- str_replace(scoringData$Name, "CHI"," ")
+scoringData$Name <- str_replace(scoringData$Name, "NO"," ")
+scoringData$Name <- str_replace(scoringData$Name, "BKN"," ")
+scoringData$Name <- str_replace(scoringData$Name, "BOS"," ")
+scoringData$Name <- str_replace(scoringData$Name, "UTAH"," ")
+scoringData$Name <- str_replace(scoringData$Name, "DEN"," ")
+scoringData$Name <- str_replace(scoringData$Name, "PHX"," ")
+scoringData$Name <- str_replace(scoringData$Name, "ATL"," ")
 
-removeColumns <- c("RK", "MIN", "FGM", "FG%", "3PM", "3PA", "3P%", "FTM", "FTA", "FT%", "REB", "AST", "STL", "BLK", "TO", "DD2", "TD3", "POS", "GP", "name")
+#Remove unnecessary statistics
+removeColumns <- c("RK", "MIN", "FGM", "FG%", "3PM", "3PA", "3P%", "FTM", "FTA", "FT%", "REB", "AST", "STL", "BLK", "TO", "DD2", "TD3", "GP", "name")
 scoringData <- select(scoringData, -one_of(removeColumns))
+
+library(ggplot2)
+library(ggrepel)
+
+#Create scatter plot for points per game and shots per game
+ggplot(scoringData) +
+  aes(x = FGA, y = PTS, colour = POS, label = Name) +
+  geom_point(shape = "circle", size = 1.5) +
+  geom_label_repel() +
+  scale_color_hue(direction = 1) +
+  labs(x = "FGA per game", y = "Points per game", title = "Effect of Field Goals Attempted on Points (2020-2021)") +
+  theme_minimal()
+
+
+#Create box plot for points per game and shots per game
+ggplot(scoringData) +
+  aes(x = PTS, y = POS) +
+  geom_boxplot(fill = "#4CBFA9") +
+  labs(
+    x = "PPG",
+    y = "Position",
+    title = "Box Plots of PPG by Position 2020-2021"
+  ) +
+  theme_minimal()
+
+
+#get summary statistics by position
+library(psych)
+groupStats <- describeBy(
+  x = scoringData$PTS,
+  group = scoringData$POS,
+  na.rm = TRUE,
+  ranges = TRUE,
+  quant = c(0.25,0.75),
+  IQR = TRUE,
+  mat = TRUE,
+  digits = 0.2
+)
+
+#Set row names as positions
+library(tibble)
+positionStats <- groupStats %>%
+  remove_rownames() %>%
+  column_to_rownames(
+    var = "group1"
+  ) %>%
+  select(
+    n, min, Q0.25, median, Q0.75, max, mad, mean, sd
+  )
+
+#Clean up table
+library(knitr)
+library(kableExtra)
+positionStats %>%
+  kable(
+    caption = "Summary Statistics for Points by Position",
+    digits = 3,
+    format.args = list(big.mark = ","),
+    align = rep('c', 11),
+    col.names = c("n", "Min", "Q1", "Median", "Q3", "Max", "MAD", "Mean", "SD"),
+    booktabs = TRUE
+  ) %>%
+  kable_styling(
+    font_size = 12,
+    latex_options = c("scale_down", "HOLD_position")
+  )
